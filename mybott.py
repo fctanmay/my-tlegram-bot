@@ -96,11 +96,12 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await update.message.reply_text("⏳ Processing your link, please wait...")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ydl_opts = {
-            'outtmpl': os.path.join(tmp_dir, '%(id)s.%(ext)s'),
-            'format': 'best',
-            'quiet': True,
-        }
+       ydl_opts = {
+    'outtmpl': os.path.join(tmp_dir, '%(id)s.%(ext)s'),
+    'format': 'bestvideo+bestaudio/best',
+    'merge_output_format': 'mp4',
+    'quiet': True,
+}
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
