@@ -2,15 +2,19 @@ import os
 import glob
 import logging
 import tempfile
+from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import yt_dlp
 
+# Set up logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
+# Configuration with Direct Telegram Bot Token
+BOT_TOKEN = "8903792426:AAEYx8yR7LMKh3OOy0Nm7ebc7eO7njBK-V4"
 INSTAGRAM_PROFILE_URL = "https://www.instagram.com/beatking_tanmay?igsh=bDgxMzZrcjluZzlo"
 
 def get_follow_keyboard():
@@ -100,7 +104,27 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+                info_dict = ydl.extract_info(url, download=True)
+
+            # Extracting Details (Uploader, Date, Location)
+            uploader = info_dict.get('uploader') or info_dict.get('uploader_id') or 'Unknown Creator'
+            
+            raw_date = info_dict.get('upload_date')
+            if raw_date:
+                upload_date = datetime.strptime(raw_date, '%Y%m%d').strftime('%d %b %Y')
+            else:
+                upload_date = 'N/A'
+
+            location = info_dict.get('location') or info_dict.get('location_tag') or 'Not Specified'
+
+            # Caption Format
+            caption_text = (
+                f"🎬 **Media Downloaded Successfully!**\n\n"
+                f"👤 **Uploaded By:** {uploader}\n"
+                f"📅 **Upload Date:** {upload_date}\n"
+                f"📍 **Location:** {location}\n\n"
+                f"👨‍💻 **Bot Developer:** Tanmay Kumar Das"
+            )
 
             downloaded_files = glob.glob(os.path.join(tmp_dir, '*'))
             if not downloaded_files:
@@ -117,7 +141,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status_message.edit_text("📤 Uploading your video...")
 
             with open(video_file, 'rb') as vf:
-                await update.message.reply_video(video=vf)
+                await update.message.reply_video(video=vf, caption=caption_text, parse_mode='Markdown')
 
             await status_message.delete()
 
@@ -126,10 +150,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status_message.edit_text("❌ Failed to download. Ensure the link is public and valid.")
 
 def main():
-    TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not TOKEN:
-        print("Error: TELEGRAM_BOT_TOKEN environment variable not set.")
-        return
+    TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or BOT_TOKEN
 
     application = Application.builder().token(TOKEN).build()
 
