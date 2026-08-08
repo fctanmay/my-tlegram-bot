@@ -14,12 +14,16 @@ logging.basicConfig(
 
 # /start Command Handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "✨ **Ultimate Social Media Downloader Bot**\n\n"
-        "Send me any link from **Instagram, Facebook, Twitter/X, TikTok, YouTube, Pinterest, Reddit**, etc.\n\n"
-        "📸 **Photos & Multi-Slide Posts (Carousels) Supported**\n"
-        "🎥 **HD Videos & Reels Supported**"
+    intro_text = (
+        "⚡ **Media Downloader Bot**\n\n"
+        "🎬 Send me any video link, and I will download it for you instantly!\n\n"
+        "📌 **How to use:**\n"
+        "Just copy & paste your video URL here.\n\n"
+        "👨‍💻 **Developer:** Tanmay Kumar Das\n"
+        "📧 **Contact:** tkd3432@gmail.com"
     )
+    await update.message.reply_text(intro_text, parse_mode='Markdown')
+
 
 # Universal Media Downloader Handler
 async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
