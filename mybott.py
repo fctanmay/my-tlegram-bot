@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 
 # Configuration with Direct Telegram Bot Token
-BOT_TOKEN = "8903792426:AAEYx8yR7LMKh3OOy0Nm7ebc7eO7njBK-V4"
+BOT_TOKEN = "8903792426:AAFOtHIB965Wi-immu0AU6ngZlisbWOd6ZU"
 INSTAGRAM_PROFILE_URL = "https://www.instagram.com/beatking_tanmay?igsh=bDgxMzZrcjluZzlo"
 
 def get_follow_keyboard():
