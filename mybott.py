@@ -96,12 +96,12 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await update.message.reply_text("⏳ Processing your link, please wait...")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-       ydl_opts = {
-    'outtmpl': os.path.join(tmp_dir, '%(id)s.%(ext)s'),
-    'format': 'bestvideo+bestaudio/best',
-    'merge_output_format': 'mp4',
-    'quiet': True,
-}
+        ydl_opts = {
+            'outtmpl': os.path.join(tmp_dir, '%(id)s.%(ext)s'),
+            'format': 'bestvideo+bestaudio/best',
+            'merge_output_format': 'mp4',
+            'quiet': True,
+        }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -151,7 +151,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status_message.edit_text("❌ Failed to download. Ensure the link is public and valid.")
 
 def main():
-    TOKEN = os.environ.get("8903792426:AAFOtHIB965Wi-immu0AU6ngZlisbWOd6ZU") or BOT_TOKEN
+    TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or BOT_TOKEN
 
     application = Application.builder().token(TOKEN).build()
 
