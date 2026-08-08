@@ -150,7 +150,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await status_message.edit_text("❌ Failed to download. Ensure the link is public and valid.")
 
 def main():
-    TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or BOT_TOKEN
+    TOKEN = os.environ.get("8903792426:AAFOtHIB965Wi-immu0AU6ngZlisbWOd6ZU") or BOT_TOKEN
 
     application = Application.builder().token(TOKEN).build()
 
