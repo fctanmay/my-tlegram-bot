@@ -93,7 +93,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         ydl_opts = {
-            'outtmpl': os.path.join(tmp_dir, '%(title)s.%(ext)s'),
+            'outtmpl': os.path.join(tmp_dir, '%(id)s.%(ext)s'),
             'format': 'best',
             'quiet': True,
         }
