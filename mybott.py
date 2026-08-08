@@ -65,7 +65,7 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(about_text, reply_markup=get_menu_keyboard(), parse_mode='Markdown')
 
-# Button Click Handler (For Follow & Menu clicks)
+# Button Click Handler
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -104,7 +104,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Media Downloader Handler
 async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Check if user clicked "I Have Followed"
     if not context.user_data.get('is_following', False):
         alert_text = (
             "🔒 **Bot is Locked!**\n\n"
