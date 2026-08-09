@@ -1,4 +1,20 @@
+from flask import Flask
+from threading import Thread
 import os
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I am alive!"
+
+def run():
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 import glob
 import logging
 import tempfile
@@ -103,7 +119,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'quiet': True,
         }
 
-        try:
+    try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(url, download=True)
 
