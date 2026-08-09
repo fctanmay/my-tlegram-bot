@@ -15,6 +15,7 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
 import glob
 import logging
 import tempfile
@@ -119,7 +120,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'quiet': True,
         }
 
-    try:
+        try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(url, download=True)
 
@@ -180,4 +181,5 @@ def main():
     application.run_polling()
 
 if __name__ == "__main__":
+    keep_alive()  # Runs the Flask server to prevent Render timeouts
     main()
