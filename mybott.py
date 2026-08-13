@@ -17,8 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Your Telegram bot token
-TOKEN = "8903792426:AAFOtHIB965Wi-immu0AU6ngZlisbWOd6ZU"
+# Your updated Telegram bot token
+TOKEN = "8903792426:AAHFFH8eq7sH_M37eSInUJrgD597OIwgCXE"
 DOWNLOAD_DIR = "downloads"
 
 if not os.path.exists(DOWNLOAD_DIR):
