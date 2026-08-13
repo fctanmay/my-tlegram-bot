@@ -1,45 +1,46 @@
 import logging
 import os
-import telebot
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 import yt_dlp
 
-# লগিং সেটআপ
+# Setup logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# আপনার টেলিগ্রাম বট টোকেন
+# Your Telegram bot token
 TOKEN = "8903792426:AAFOtHIB965Wi-immu0AU6ngZlisbWOd6ZU"
-
-# মাল্টি-থ্রেডিং এনাবল করা হয়েছে যাতে একাধিক ইউজার একসাথে ব্যবহার করতে পারেন
-bot = telebot.TeleBot(TOKEN, threaded=True)
-
 DOWNLOAD_DIR = "downloads"
+
 if not os.path.exists(DOWNLOAD_DIR):
   os.makedirs(DOWNLOAD_DIR)
 
 
-@bot.message_handler(commands=["start", "help"])
-def send_welcome(message):
-  welcome_text = (
-      "স্বাগতম! ইনস্টাগ্রামের যেকোনো রিল বা ভিডিওর লিঙ্ক এখানে পাঠান,\nআমি"
-      " সেটি দ্রুত ডাউনলোড করে আপনার কাছে পাঠিয়ে দেবো।"
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  await update.message.reply_text(
+      "Welcome! Send any Instagram reel or video link here,\nI will download"
+      " and send it to you quickly."
   )
-  bot.reply_to(message, welcome_text)
 
 
-@bot.message_handler(
-    func=lambda message: message.text
-    and ("instagram.com" in message.text.lower())
-)
-def download_instagram_media(message):
-  url = message.text.strip()
-  processing_msg = bot.reply_to(
-      message,
-      "⏳ ইনস্টাগ্রাম থেকে মিডিয়া প্রসেস করা হচ্ছে, অনুগ্রহ করে অপেক্ষা"
-      " করুন...",
+async def download_instagram(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
+  url = update.message.text.strip()
+  if "instagram.com" not in url.lower():
+    return
+
+  processing_msg = await update.message.reply_text(
+      "⏳ Processing media from Instagram, please wait..."
   )
 
   ydl_opts = {
@@ -56,50 +57,68 @@ def download_instagram_media(message):
       file_path = ydl.prepare_filename(info_dict)
 
     if not file_path or not os.path.exists(file_path):
-      raise Exception("মিডিয়া ফাইলটি সংগ্রহ করা যায়নি।")
+      raise Exception("Could not retrieve the media file.")
 
-    # টেলিগ্রামের ফাইল সাইজ লিমিট চেক (সর্বোচ্চ ৫০ এমবি)
+    # Check Telegram file size limit (max 50 MB)
     file_size = os.path.getsize(file_path) / (1024 * 1024)
     if file_size > 50:
-      bot.edit_message_text(
-          "⚠️ ফাইলটির সাইজ অনেক বড় (৫০ এমবির বেশি), তাই টেলিগ্রামের মাধ্যমে"
-          " পাঠানো সম্ভব হচ্ছে না।",
-          message.chat.id,
-          processing_msg.message_id,
+      await context.bot.edit_message_text(
+          text=(
+              "⚠️ The file size is too large (greater than 50MB), so it cannot"
+              " be sent via Telegram."
+          ),
+          chat_id=update.effective_chat.id,
+          message_id=processing_msg.message_id,
       )
       return
 
     with open(file_path, "rb") as media_file:
-      bot.send_video(
-          message.chat.id,
-          media_file,
-          caption="✅ আপনার ইনস্টাগ্রাম ভিডিও সফলভাবে ডাউনলোড করা হয়েছে!",
+      await context.bot.send_video(
+          chat_id=update.effective_chat.id,
+          video=media_file,
+          caption="✅ Your Instagram video has been downloaded successfully!",
       )
 
-    bot.delete_message(message.chat.id, processing_msg.message_id)
+    await context.bot.delete_message(
+        chat_id=update.effective_chat.id, message_id=processing_msg.message_id
+    )
 
   except Exception as e:
-    logger.error(f"ডাউনলোড ত্রুটি: {e}")
+    logger.error(f"Download error: {e}")
     error_text = (
-        "❌ দুঃখিত, ভিডিওটি ডাউনলোড করা সম্ভব হয়নি। লিঙ্কটি সঠিক ও পাবলিক কি"
-        f" না তা যাচাই করুন।\nত্রুটি: {str(e)}"
+        "❌ Sorry, the video could not be downloaded. Please check if the link"
+        f" is valid and public.\nError: {str(e)}"
     )
     try:
-      bot.edit_message_text(
-          error_text, message.chat.id, processing_msg.message_id
+      await context.bot.edit_message_text(
+          text=error_text,
+          chat_id=update.effective_chat.id,
+          message_id=processing_msg.message_id,
       )
     except Exception:
-      bot.send_message(message.chat.id, error_text)
+      await context.bot.send_message(
+          chat_id=update.effective_chat.id, text=error_text
+      )
 
   finally:
-    # সার্ভার ফাঁকা রাখতে ফাইল ডিলিট নিশ্চিত করা
     if file_path and os.path.exists(file_path):
       try:
         os.remove(file_path)
       except Exception as cleanup_error:
-        logger.error(f"ফাইল মুছতে সমস্যা হয়েছে: {cleanup_error}")
+        logger.error(f"Failed to delete file: {cleanup_error}")
+
+
+def main():
+  application = ApplicationBuilder().token(TOKEN).build()
+
+  application.add_handler(CommandHandler("start", start))
+  application.add_handler(
+      MessageHandler(filters.TEXT & (~filters.COMMAND), download_instagram)
+  )
+
+  logger.info("Instagram downloader bot started successfully...")
+  application.run_polling()
 
 
 if __name__ == "__main__":
-  logger.info("ইনস্টাগ্রাম ডাউনলোডার বট সফলভাবে চালু হয়েছে...")
-  bot.infinity_polling()
+  main()
