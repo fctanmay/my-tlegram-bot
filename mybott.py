@@ -1,8 +1,9 @@
 import logging
 import os
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -27,78 +28,146 @@ if not os.path.exists(DOWNLOAD_DIR):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
   await update.message.reply_text(
-      "Welcome! Send any Instagram reel or video link here,\nI will download"
-      " and send it to you quickly."
+      "Welcome! Send any YouTube, Facebook, Instagram, or Twitter link.\n"
+      "You can choose your preferred video quality before downloading!\n\n"
+      "👑 *Bot Created & Developed by: You*",
+      parse_mode="Markdown",
   )
 
 
-async def download_instagram(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-):
+async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
   url = update.message.text.strip()
-  if "instagram.com" not in url.lower():
+  if not url.startswith("http"):
     return
 
-  processing_msg = await update.message.reply_text(
-      "⏳ Processing media from Instagram, please wait..."
+  # Store URL temporarily in user_data
+  context.user_data["target_url"] = url
+
+  # Quality selection keyboard with Back button
+  keyboard = [
+      [
+          InlineKeyboardButton("1080p (Best)", callback_data="qual_best"),
+          InlineKeyboardButton("720p (HD)", callback_data="qual_720"),
+      ],
+      [
+          InlineKeyboardButton("480p (Medium)", callback_data="qual_480"),
+          InlineKeyboardButton("Audio (MP3)", callback_data="qual_audio"),
+      ],
+      [InlineKeyboardButton("🔙 Back / Cancel", callback_data="qual_back")],
+  ]
+  reply_markup = InlineKeyboardMarkup(keyboard)
+
+  await update.message.reply_text(
+      "🎬 Link received! Please select your preferred quality:",
+      reply_markup=reply_markup,
   )
+
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  query = update.callback_query
+  await query.answer()
+
+  data = query.data
+
+  if data == "qual_back":
+    await query.edit_message_text(
+        "❌ Operation cancelled. Send a new link whenever you are ready!"
+    )
+    return
+
+  url = context.user_data.get("target_url")
+  if not url:
+    await query.edit_message_text(
+        "⚠️ Session expired or link not found. Please send the link again."
+    )
+    return
+
+  await query.edit_message_text(
+      "⏳ Downloading media according to your selected quality, please wait..."
+  )
+
+  format_opt = "best"
+  is_audio = False
+
+  if data == "qual_best":
+    format_opt = "best/bestvideo+bestaudio"
+  elif data == "qual_720":
+    format_opt = (
+        "bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best"
+    )
+  elif data == "qual_480":
+    format_opt = (
+        "bestvideo[height<=480]+bestaudio/best[height<=480]/bestvideo+bestaudio/best"
+    )
+  elif data == "qual_audio":
+    format_opt = "bestaudio/best"
+    is_audio = True
 
   ydl_opts = {
       "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
-      "format": "best/bestvideo+bestaudio",
+      "format": format_opt,
       "noplaylist": True,
       "quiet": True,
   }
+
+  if is_audio:
+    ydl_opts["postprocessors"] = [{
+        "key": "FFmpegExtractAudio",
+        "preferredcodec": "mp3",
+        "preferredquality": "192",
+    }]
 
   file_path = None
   try:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
       info_dict = ydl.extract_info(url, download=True)
       file_path = ydl.prepare_filename(info_dict)
+      if is_audio:
+        file_path = os.path.splitext(file_path)[0] + ".mp3"
 
     if not file_path or not os.path.exists(file_path):
       raise Exception("Could not retrieve the media file.")
 
-    # Check Telegram file size limit (max 50 MB)
     file_size = os.path.getsize(file_path) / (1024 * 1024)
     if file_size > 50:
-      await context.bot.edit_message_text(
+      await context.bot.send_message(
+          chat_id=query.message.chat_id,
           text=(
-              "⚠️ The file size is too large (greater than 50MB), so it cannot"
-              " be sent via Telegram."
+              "⚠️ The file size exceeds 50MB, so it cannot be sent via"
+              " Telegram."
           ),
-          chat_id=update.effective_chat.id,
-          message_id=processing_msg.message_id,
       )
       return
 
     with open(file_path, "rb") as media_file:
-      await context.bot.send_video(
-          chat_id=update.effective_chat.id,
-          video=media_file,
-          caption="✅ Your Instagram video has been downloaded successfully!",
-      )
+      if is_audio:
+        await context.bot.send_audio(
+            chat_id=query.message.chat_id,
+            audio=media_file,
+            caption=(
+                "✅ Audio downloaded successfully!\n👑 Developed & Coded by: You"
+            ),
+        )
+      else:
+        await context.bot.send_video(
+            chat_id=query.message.chat_id,
+            video=media_file,
+            caption=(
+                "✅ Video downloaded successfully!\n👑 Developed & Coded by: You"
+            ),
+        )
 
-    await context.bot.delete_message(
-        chat_id=update.effective_chat.id, message_id=processing_msg.message_id
-    )
+    try:
+      await query.message.delete()
+    except Exception:
+      pass
 
   except Exception as e:
     logger.error(f"Download error: {e}")
-    error_text = (
-        "❌ Sorry, the video could not be downloaded. Please check if the link"
-        f" is valid and public.\nError: {str(e)}"
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=f"❌ Download failed. Error: {str(e)}",
     )
-    try:
-      await context.bot.edit_message_text(
-          text=error_text,
-          chat_id=update.effective_chat.id,
-          message_id=processing_msg.message_id,
-      )
-    except Exception:
-      await context.bot.send_message(
-          chat_id=update.effective_chat.id, text=error_text
-      )
 
   finally:
     if file_path and os.path.exists(file_path):
@@ -113,10 +182,11 @@ def main():
 
   application.add_handler(CommandHandler("start", start))
   application.add_handler(
-      MessageHandler(filters.TEXT & (~filters.COMMAND), download_instagram)
+      MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
   )
+  application.add_handler(CallbackQueryHandler(button_callback))
 
-  logger.info("Instagram downloader bot started successfully...")
+  logger.info("Universal Downloader Bot started successfully...")
   application.run_polling()
 
 
