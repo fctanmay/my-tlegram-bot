@@ -18,7 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Your updated Telegram bot token
+# Your Telegram bot token
 TOKEN = "8903792426:AAGLiKvLR1Lh7Mhx-CtKcXkI0f2uMKT9HlM"
 DOWNLOAD_DIR = "downloads"
 
@@ -28,10 +28,11 @@ if not os.path.exists(DOWNLOAD_DIR):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
   await update.message.reply_text(
-      "Welcome! Send any YouTube, Facebook, Instagram, or Twitter link.\n"
-      "You can choose your preferred video quality before downloading!\n\n"
-      "👑 *Bot Created & Developed by:* Tanmay Kumar\n"
-      "📧 *Email:* tke3432@gmail.com",
+      "✨ **Welcome to Universal Downloader Bot!**\n\n"
+      "Send any YouTube, Facebook, Instagram, or Twitter link, and choose your"
+      " preferred quality.\n\n"
+      "👑 **Developed by:** Tanmay Kumar\n"
+      "📧 **Email:** tke3432@gmail.com",
       parse_mode="Markdown",
   )
 
@@ -41,26 +42,26 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if not url.startswith("http"):
     return
 
-  # Store URL temporarily in user_data
   context.user_data["target_url"] = url
 
-  # Quality selection keyboard with Back button
   keyboard = [
       [
-          InlineKeyboardButton("1080p (Best)", callback_data="qual_best"),
-          InlineKeyboardButton("720p (HD)", callback_data="qual_720"),
+          InlineKeyboardButton("🔥 1080p (Best)", callback_data="qual_best"),
+          InlineKeyboardButton("💻 720p (HD)", callback_data="qual_720"),
       ],
       [
-          InlineKeyboardButton("480p (Medium)", callback_data="qual_480"),
-          InlineKeyboardButton("Audio (MP3)", callback_data="qual_audio"),
+          InlineKeyboardButton("📱 480p (Medium)", callback_data="qual_480"),
+          InlineKeyboardButton("🎵 Audio (MP3)", callback_data="qual_audio"),
       ],
       [InlineKeyboardButton("🔙 Back / Cancel", callback_data="qual_back")],
   ]
   reply_markup = InlineKeyboardMarkup(keyboard)
 
   await update.message.reply_text(
-      "🎬 Link received! Please select your preferred quality:",
+      "🎬 **Link received successfully!**\nPlease select your preferred"
+      " quality below:",
       reply_markup=reply_markup,
+      parse_mode="Markdown",
   )
 
 
@@ -72,34 +73,33 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
   if data == "qual_back":
     await query.edit_message_text(
-        "❌ Operation cancelled. Send a new link whenever you are ready!"
+        "❌ **Operation cancelled.** Send a new link whenever you are ready!",
+        parse_mode="Markdown",
     )
     return
 
   url = context.user_data.get("target_url")
   if not url:
     await query.edit_message_text(
-        "⚠️ Session expired or link not found. Please send the link again."
+        "⚠️ **Session expired.** Please send the link again.",
+        parse_mode="Markdown",
     )
     return
 
   await query.edit_message_text(
-      "⏳ Downloading media according to your selected quality, please wait..."
+      "⏳ **Downloading media...** Please wait a moment.", parse_mode="Markdown"
   )
 
   format_opt = "best"
   is_audio = False
 
+  # FFmpeg ছাড়া সরাসরি সিঙ্গেল ফাইল পিক করার অপশন (যাতে সব কোয়ালিটি কাজ করে)
   if data == "qual_best":
-    format_opt = "best/bestvideo+bestaudio"
+    format_opt = "best"
   elif data == "qual_720":
-    format_opt = (
-        "bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best"
-    )
+    format_opt = "best[height<=720]/best[height<=1080]/best"
   elif data == "qual_480":
-    format_opt = (
-        "bestvideo[height<=480]+bestaudio/best[height<=480]/bestvideo+bestaudio/best"
-    )
+    format_opt = "best[height<=480]/best[height<=720]/best"
   elif data == "qual_audio":
     format_opt = "bestaudio/best"
     is_audio = True
@@ -134,9 +134,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       await context.bot.send_message(
           chat_id=query.message.chat_id,
           text=(
-              "⚠️ The file size exceeds 50MB, so it cannot be sent via"
+              "⚠️ **The file size exceeds 50MB**, so it cannot be sent via"
               " Telegram."
           ),
+          parse_mode="Markdown",
       )
       return
 
@@ -146,18 +147,23 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=query.message.chat_id,
             audio=media_file,
             caption=(
-                "✅ Audio downloaded successfully!\n"
-                "👑 Developed by: Tanmay Kumar (tke3432@gmail.com)"
+                "🎵 **Audio downloaded successfully!**\n\n"
+                "👑 **Developed by:** Tanmay Kumar\n"
+                "📧 **Email:** tke3432@gmail.com"
             ),
+            parse_mode="Markdown",
         )
       else:
         await context.bot.send_video(
             chat_id=query.message.chat_id,
             video=media_file,
+            supports_streaming=True,
             caption=(
-                "✅ Video downloaded successfully!\n"
-                "👑 Developed by: Tanmay Kumar (tke3432@gmail.com)"
+                "✅ **Video downloaded successfully!**\n\n"
+                "👑 **Developed by:** Tanmay Kumar\n"
+                "📧 **Email:** tke3432@gmail.com"
             ),
+            parse_mode="Markdown",
         )
 
     try:
@@ -169,7 +175,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Download error: {e}")
     await context.bot.send_message(
         chat_id=query.message.chat_id,
-        text=f"❌ Download failed. Error: {str(e)}",
+        text=f"❌ **Download failed.** Error: `{str(e)}`",
+        parse_mode="Markdown",
     )
 
   finally:
