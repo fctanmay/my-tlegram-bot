@@ -30,7 +30,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
   await update.message.reply_text(
       "Welcome! Send any YouTube, Facebook, Instagram, or Twitter link.\n"
       "You can choose your preferred video quality before downloading!\n\n"
-      "👑 *Bot Created & Developed by: You*",
+      "👑 *Bot Created & Developed by:* Tanmay Kumar\n"
+      "📧 *Email:* tke3432@gmail.com",
       parse_mode="Markdown",
   )
 
@@ -145,7 +146,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=query.message.chat_id,
             audio=media_file,
             caption=(
-                "✅ Audio downloaded successfully!\n👑 Developed & Coded by: You"
+                "✅ Audio downloaded successfully!\n"
+                "👑 Developed by: Tanmay Kumar (tke3432@gmail.com)"
             ),
         )
       else:
@@ -153,7 +155,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=query.message.chat_id,
             video=media_file,
             caption=(
-                "✅ Video downloaded successfully!\n👑 Developed & Coded by: You"
+                "✅ Video downloaded successfully!\n"
+                "👑 Developed by: Tanmay Kumar (tke3432@gmail.com)"
             ),
         )
 
