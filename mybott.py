@@ -27,21 +27,33 @@ if not os.path.exists(DOWNLOAD_DIR):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  await update.message.reply_text(
-      "✨ **Welcome to Universal Downloader Bot!**\n\n"
+  user = update.effective_user
+  logger.info(
+      f"New /start from User: {user.full_name} (@{user.username}, ID:"
+      f" {user.id})"
+  )
+
+  # Plain text used to prevent markdown parsing errors from underscores in email
+  welcome_text = (
+      "✨ Welcome to Universal Downloader Bot!\n\n"
       "Send any YouTube, Facebook, Instagram, or Twitter link, and choose your"
       " preferred quality.\n\n"
-      "👑 **Developed by:** Tanmay Kumar\n"
-      "📧 **Email:** tke3432@gmail.com",
-      parse_mode="Markdown",
+      "👑 Developed by: Tanmay Kumar\n"
+      "📧 Email: tke3432@gmail.com"
   )
+  await update.message.reply_text(welcome_text)
 
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  user = update.effective_user
   url = update.message.text.strip()
   if not url.startswith("http"):
     return
 
+  logger.info(
+      f"🔗 Link received from User: {user.full_name} (@{user.username}, ID:"
+      f" {user.id}) | URL: {url}"
+  )
   context.user_data["target_url"] = url
 
   keyboard = [
@@ -58,42 +70,50 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
   reply_markup = InlineKeyboardMarkup(keyboard)
 
   await update.message.reply_text(
-      "🎬 **Link received successfully!**\nPlease select your preferred"
-      " quality below:",
+      "🎬 Link received successfully!\nPlease select your preferred quality"
+      " below:",
       reply_markup=reply_markup,
-      parse_mode="Markdown",
   )
 
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
+  user = update.effective_user
   await query.answer()
 
   data = query.data
 
+  if data == "save_acknowledged":
+    await query.answer("✅ Media is ready in your chat!", show_alert=True)
+    return
+
   if data == "qual_back":
+    logger.info(
+        f"❌ User {user.full_name} (ID: {user.id}) cancelled the operation."
+    )
     await query.edit_message_text(
-        "❌ **Operation cancelled.** Send a new link whenever you are ready!",
-        parse_mode="Markdown",
+        "❌ Operation cancelled. Send a new link whenever you are ready!"
     )
     return
 
   url = context.user_data.get("target_url")
   if not url:
     await query.edit_message_text(
-        "⚠️ **Session expired.** Please send the link again.",
-        parse_mode="Markdown",
+        "⚠️ Session expired. Please send the link again."
     )
     return
 
+  logger.info(
+      f"⬇️ User {user.full_name} (ID: {user.id}) selected quality option:"
+      f" {data} for URL: {url}"
+  )
   await query.edit_message_text(
-      "⏳ **Downloading media...** Please wait a moment.", parse_mode="Markdown"
+      "⏳ Downloading media... Please wait a moment."
   )
 
   format_opt = "best"
   is_audio = False
 
-  # FFmpeg ছাড়া সরাসরি সিঙ্গেল ফাইল পিক করার অপশন (যাতে সব কোয়ালিটি কাজ করে)
   if data == "qual_best":
     format_opt = "best"
   elif data == "qual_720":
@@ -134,12 +154,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       await context.bot.send_message(
           chat_id=query.message.chat_id,
           text=(
-              "⚠️ **The file size exceeds 50MB**, so it cannot be sent via"
+              "⚠️ The file size exceeds 50MB, so it cannot be sent via"
               " Telegram."
           ),
-          parse_mode="Markdown",
       )
       return
+
+    # Add Save Button markup for the sent media
+    save_keyboard = [[InlineKeyboardButton("💾 Save / Saved", callback_data="save_acknowledged")]]
+    save_markup = InlineKeyboardMarkup(save_keyboard)
 
     with open(file_path, "rb") as media_file:
       if is_audio:
@@ -147,11 +170,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=query.message.chat_id,
             audio=media_file,
             caption=(
-                "🎵 **Audio downloaded successfully!**\n\n"
-                "👑 **Developed by:** Tanmay Kumar\n"
-                "📧 **Email:** tke3432@gmail.com"
+                "🎵 Audio downloaded successfully!\n\n"
+                "👑 Developed by: Tanmay Kumar\n"
+                "📧 Email: tke3432@gmail.com"
             ),
-            parse_mode="Markdown",
+            reply_markup=save_markup,
         )
       else:
         await context.bot.send_video(
@@ -159,12 +182,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             video=media_file,
             supports_streaming=True,
             caption=(
-                "✅ **Video downloaded successfully!**\n\n"
-                "👑 **Developed by:** Tanmay Kumar\n"
-                "📧 **Email:** tke3432@gmail.com"
+                "✅ Video downloaded successfully!\n\n"
+                "👑 Developed by: Tanmay Kumar\n"
+                "📧 Email: tke3432@gmail.com"
             ),
-            parse_mode="Markdown",
+            reply_markup=save_markup,
         )
+
+    logger.info(
+        f"✅ Successfully sent media to User: {user.full_name} (ID: {user.id})"
+    )
 
     try:
       await query.message.delete()
@@ -172,11 +199,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       pass
 
   except Exception as e:
-    logger.error(f"Download error: {e}")
+    logger.error(f"❌ Download error for User {user.id}: {e}")
     await context.bot.send_message(
         chat_id=query.message.chat_id,
-        text=f"❌ **Download failed.** Error: `{str(e)}`",
-        parse_mode="Markdown",
+        text=f"❌ Download failed. Error: {str(e)}",
     )
 
   finally:
@@ -196,7 +222,7 @@ def main():
   )
   application.add_handler(CallbackQueryHandler(button_callback))
 
-  logger.info("Universal Downloader Bot started successfully...")
+  logger.info("Universal Downloader Bot started successfully with Save button & fixes...")
   application.run_polling()
 
 
