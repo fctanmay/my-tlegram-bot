@@ -1,6 +1,11 @@
 import logging
 import os
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    Update,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -33,7 +38,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
       f" {user.id})"
   )
 
-  # Plain text used to prevent markdown parsing errors from underscores in email
+  reply_keyboard = [
+      ["💾 My Saved Files", "✨ Help / Info"],
+  ]
+  markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
+
   welcome_text = (
       "✨ Welcome to Universal Downloader Bot!\n\n"
       "Send any YouTube, Facebook, Instagram, or Twitter link, and choose your"
@@ -41,20 +50,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
       "👑 Developed by: Tanmay Kumar\n"
       "📧 Email: tke3432@gmail.com"
   )
-  await update.message.reply_text(welcome_text)
+  await update.message.reply_text(welcome_text, reply_markup=markup)
 
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
   user = update.effective_user
-  url = update.message.text.strip()
-  if not url.startswith("http"):
+  text = update.message.text.strip()
+
+  if text == "💾 My Saved Files":
+    await update.message.reply_text(
+        "📂 To save any video permanently, click the '💾 Save / Saved' button"
+        " right under the downloaded video, or use the top-right three dots"
+        " (...) of the video to save it to your gallery!"
+    )
+    return
+  elif text == "✨ Help / Info":
+    await update.message.reply_text(
+        "💡 Send any video link from YouTube, Instagram, Facebook, or Twitter."
+        " Then select your desired quality from the buttons."
+    )
+    return
+
+  if not text.startswith("http"):
     return
 
   logger.info(
       f"🔗 Link received from User: {user.full_name} (@{user.username}, ID:"
-      f" {user.id}) | URL: {url}"
+      f" {user.id}) | URL: {text}"
   )
-  context.user_data["target_url"] = url
+  context.user_data["target_url"] = text
 
   keyboard = [
       [
@@ -83,8 +107,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
   data = query.data
 
-  if data == "save_acknowledged":
-    await query.answer("✅ Media is ready in your chat!", show_alert=True)
+  # When the Save button is clicked, it confirms and gives a direct alert
+  if data == "save_action":
+    await query.answer(
+        "✅ Media is already saved in your chat history! You can also tap the"
+        " top-right (...) on the video to save it to your gallery.",
+        show_alert=True,
+    )
     return
 
   if data == "qual_back":
@@ -160,8 +189,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       )
       return
 
-    # Add Save Button markup for the sent media
-    save_keyboard = [[InlineKeyboardButton("💾 Save / Saved", callback_data="save_acknowledged")]]
+    # Interactive Save Button attached right with the downloaded media
+    save_keyboard = [[InlineKeyboardButton("💾 Save / Saved", callback_data="save_action")]]
     save_markup = InlineKeyboardMarkup(save_keyboard)
 
     with open(file_path, "rb") as media_file:
@@ -222,7 +251,7 @@ def main():
   )
   application.add_handler(CallbackQueryHandler(button_callback))
 
-  logger.info("Universal Downloader Bot started successfully with Save button & fixes...")
+  logger.info("Bot started successfully with interactive Save button...")
   application.run_polling()
 
 
