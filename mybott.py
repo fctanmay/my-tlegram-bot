@@ -2,15 +2,9 @@ import logging
 import os
 import threading
 from flask import Flask
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-    Update,
-)
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
-    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -18,14 +12,14 @@ from telegram.ext import (
 )
 import yt_dlp
 
-# Setup logging
+# 🛠️ Setup logging configuration
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# Your Telegram bot token
+# 🔑 Bot Configuration & Directories
 TOKEN = "8903792426:AAGLiKvLR1Lh7Mhx-CtKcXkI0f2uMKT9HlM"
 DOWNLOAD_DIR = "downloads"
 COOKIE_FILE = "cookies.txt"
@@ -33,7 +27,7 @@ COOKIE_FILE = "cookies.txt"
 if not os.path.exists(DOWNLOAD_DIR):
   os.makedirs(DOWNLOAD_DIR)
 
-# --- Flask Web Server to prevent 503 Render Error ---
+# 🌐 Flask Web Server to keep Render alive 24/7
 app = Flask(__name__)
 
 
@@ -47,256 +41,101 @@ def run_flask():
   app.run(host="0.0.0.0", port=port)
 
 
+# 👋 Start Command Handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  user = update.effective_user
-  logger.info(
-      f"New /start from User: {user.full_name} (@{user.username}, ID:"
-      f" {user.id})"
+  welcome_msg = (
+      "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
+      "📥 Send any video or media link directly to download it instantly.\n\n"
+      "👑 **Developed & Maintained by:** Tanmay Kumar\n"
+      "📧 **Contact:** tke3432@gmail.com"
   )
-
-  reply_keyboard = [
-      ["📥 Bulk Profile Download", "💾 My Saved Files"],
-      ["✨ Help / Info"],
-  ]
-  markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
-
-  welcome_text = (
-      "✨ Welcome to Universal Downloader Bot!\n\n"
-      "Send any single link or use the Profile Download button below for"
-      " Instagram profiles (up to 20 posts/reels).\n\n"
-      "👑 Developed by: Tanmay Kumar\n"
-      "📧 Email: tke3432@gmail.com"
-  )
-  await update.message.reply_text(welcome_text, reply_markup=markup)
+  await update.message.reply_text(welcome_msg, parse_mode="Markdown")
 
 
+# 📥 URL Handler & Downloader
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  user = update.effective_user
   text = update.message.text.strip()
-
-  if text == "📥 Bulk Profile Download":
-    context.user_data["expecting_profile"] = True
-    await update.message.reply_text(
-        "📥 **Profile Mode Activated!**\n\nPlease send the Instagram profile"
-        " link now, and I will download up to 20 latest posts/reels for you."
-    )
-    return
-  elif text == "💾 My Saved Files":
-    await update.message.reply_text(
-        "📂 To save any video permanently, use the top-right three dots (...)"
-        " of the video player to save it directly to your gallery!"
-    )
-    return
-  elif text == "✨ Help / Info":
-    await update.message.reply_text(
-        "💡 Send any video link directly, or click '📥 Bulk Profile Download'"
-        " to download up to 20 items from an Instagram profile."
-    )
-    return
 
   if not text.startswith("http"):
     return
 
-  is_profile_mode = context.user_data.get("expecting_profile", False)
-
-  logger.info(
-      f"🔗 Link received from User: {user.full_name} (@{user.username}, ID:"
-      f" {user.id}) | URL: {text} | Profile Mode: {is_profile_mode}"
+  status_msg = await update.message.reply_text(
+      "⏳ **Downloading your media... Please wait a moment.** 🚀",
+      parse_mode="Markdown",
   )
-  context.user_data["target_url"] = text
-  context.user_data["expecting_profile"] = False
-
-  keyboard = [
-      [
-          InlineKeyboardButton("🔥 1080p (Best)", callback_data="qual_best"),
-          InlineKeyboardButton("💻 720p (HD)", callback_data="qual_720"),
-      ],
-      [
-          InlineKeyboardButton("📱 480p (Medium)", callback_data="qual_480"),
-          InlineKeyboardButton("🎵 Audio (MP3)", callback_data="qual_audio"),
-      ],
-      [InlineKeyboardButton("🔙 Back / Cancel", callback_data="qual_back")],
-  ]
-  reply_markup = InlineKeyboardMarkup(keyboard)
-
-  await update.message.reply_text(
-      "🎬 Link received successfully!\nPlease select your preferred quality"
-      " below:",
-      reply_markup=reply_markup,
-  )
-
-
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  query = update.callback_query
-  user = update.effective_user
-  await query.answer()
-
-  data = query.data
-
-  if data == "save_action":
-    await query.answer(
-        "✅ Media is already saved in your chat history! You can also tap the"
-        " top-right (...) on the video to save it to your gallery.",
-        show_alert=True,
-    )
-    return
-
-  if data == "qual_back":
-    logger.info(
-        f"❌ User {user.full_name} (ID: {user.id}) cancelled the operation."
-    )
-    await query.edit_message_text(
-        "❌ Operation cancelled. Send a new link whenever you are ready!"
-    )
-    return
-
-  url = context.user_data.get("target_url")
-  if not url:
-    await query.edit_message_text(
-        "⚠️ Session expired. Please send the link again."
-    )
-    return
-
-  logger.info(
-      f"⬇️ User {user.full_name} (ID: {user.id}) selected quality option:"
-      f" {data} for URL: {url}"
-  )
-  await query.edit_message_text(
-      "⏳ Downloading media (up to 20 items)... Please wait a moment."
-  )
-
-  format_opt = "best"
-  is_audio = False
-
-  if data == "qual_best":
-    format_opt = "best"
-  elif data == "qual_720":
-    format_opt = "best[height<=720]/best[height<=1080]/best"
-  elif data == "qual_480":
-    format_opt = "best[height<=480]/best[height<=720]/best"
-  elif data == "qual_audio":
-    format_opt = "bestaudio/best"
-    is_audio = True
 
   ydl_opts = {
       "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
-      "format": format_opt,
-      "playlistend": 20,  # একসাথে সর্বোচ্চ ২০টি রিল বা পোস্ট
-      "noplaylist": False,
+      "format": "best",
       "quiet": True,
   }
-
   if os.path.exists(COOKIE_FILE):
     ydl_opts["cookiefile"] = COOKIE_FILE
-
-  if is_audio:
-    ydl_opts["postprocessors"] = [{
-        "key": "FFmpegExtractAudio",
-        "preferredcodec": "mp3",
-        "preferredquality": "192",
-    }]
 
   file_path = None
   try:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-      info_dict = ydl.extract_info(url, download=True)
-
+      info_dict = ydl.extract_info(text, download=True)
       if "entries" in info_dict:
-        entries = [e for e in info_dict["entries"] if e]
-        if entries:
-          info_dict = entries[0]
-        else:
-          raise Exception("No downloadable media found in this profile/link.")
-
+        info_dict = info_dict["entries"][0]
       file_path = ydl.prepare_filename(info_dict)
-      if is_audio:
-        file_path = os.path.splitext(file_path)[0] + ".mp3"
 
-    if not file_path or not os.path.exists(file_path):
-      raise Exception("Could not retrieve the media file.")
+    # 📊 Formatted Caption with Details & Credits
+    uploader_name = info_dict.get("uploader", "Unknown")
+    upload_date = info_dict.get("upload_date", "N/A")
+    download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
 
-    file_size = os.path.getsize(file_path) / (1024 * 1024)
-    if file_size > 50:
-      await context.bot.send_message(
-          chat_id=query.message.chat_id,
-          text=(
-              "⚠️ The file size exceeds 50MB, so it cannot be sent via"
-              " Telegram."
-          ),
-      )
-      return
-
-    save_keyboard = [[
-        InlineKeyboardButton("💾 Save / Saved", callback_data="save_action")
-    ]]
-    save_markup = InlineKeyboardMarkup(save_keyboard)
-
-    with open(file_path, "rb") as media_file:
-      if is_audio:
-        await context.bot.send_audio(
-            chat_id=query.message.chat_id,
-            audio=media_file,
-            caption=(
-                "🎵 Audio downloaded successfully!\n\n"
-                "👑 Developed by: Tanmay Kumar\n"
-                "📧 Email: tke3432@gmail.com"
-            ),
-            reply_markup=save_markup,
-        )
-      else:
-        await context.bot.send_video(
-            chat_id=query.message.chat_id,
-            video=media_file,
-            supports_streaming=True,
-            caption=(
-                "✅ Video downloaded successfully!\n\n"
-                "👑 Developed by: Tanmay Kumar\n"
-                "📧 Email: tke3432@gmail.com"
-            ),
-            reply_markup=save_markup,
-        )
-
-    logger.info(
-        f"✅ Successfully sent media to User: {user.full_name} (ID: {user.id})"
+    caption = (
+        f"✅ **Download Completed Successfully!** 🎉\n\n"
+        f"👤 **Uploader:** {uploader_name}\n"
+        f"📅 **Upload Date:** {upload_date}\n"
+        f"📥 **Downloaded on:** {download_time}\n\n"
+        f"👑 **Developed by:** Tanmay Kumar\n"
+        f"📧 **Email:** tke3432@gmail.com"
     )
 
+    with open(file_path, "rb") as media_file:
+      await context.bot.send_video(
+          chat_id=update.message.chat_id,
+          video=media_file,
+          caption=caption,
+          parse_mode="Markdown",
+      )
+
+    # Delete the temporary status message
     try:
-      await query.message.delete()
+      await status_msg.delete()
     except Exception:
       pass
 
   except Exception as e:
-    logger.error(f"❌ Download error for User {user.id}: {e}")
-    await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text=f"❌ Download failed. Error: {str(e)}",
+    await status_msg.edit_text(
+        f"❌ **Download Failed!**\n\nError: `{str(e)}`", parse_mode="Markdown"
     )
 
   finally:
+    # 🧹 Clean up local file after sending
     if file_path and os.path.exists(file_path):
       try:
         os.remove(file_path)
-      except Exception as cleanup_error:
-        logger.error(f"Failed to delete file: {cleanup_error}")
+      except Exception:
+        pass
 
 
+# 🚀 Main Function to Run Bot and Web Server
 def main():
-  t = threading.Thread(target=run_flask)
-  t.daemon = True
-  t.start()
+  # Start Flask in background thread
+  threading.Thread(target=run_flask, daemon=True).start()
 
+  # Build Telegram Bot Application
   application = ApplicationBuilder().token(TOKEN).build()
 
   application.add_handler(CommandHandler("start", start))
   application.add_handler(
       MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
   )
-  application.add_handler(CallbackQueryHandler(button_callback))
 
-  logger.info(
-      "Bot started successfully with 20 items profile limit, Flask, and"
-      " cookies..."
-  )
+  logger.info("🤖 Bot started successfully with full styling and credits!")
   application.run_polling()
 
 
