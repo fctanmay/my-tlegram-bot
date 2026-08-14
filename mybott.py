@@ -54,7 +54,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
       f" {user.id})"
   )
 
-  # Persistent Reply Keyboard with the new Profile Download button
   reply_keyboard = [
       ["📥 Bulk Profile Download", "💾 My Saved Files"],
       ["✨ Help / Info"],
@@ -64,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
   welcome_text = (
       "✨ Welcome to Universal Downloader Bot!\n\n"
       "Send any single link or use the Profile Download button below for"
-      " Instagram profiles.\n\n"
+      " Instagram profiles (up to 20 posts/reels).\n\n"
       "👑 Developed by: Tanmay Kumar\n"
       "📧 Email: tke3432@gmail.com"
   )
@@ -79,7 +78,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["expecting_profile"] = True
     await update.message.reply_text(
         "📥 **Profile Mode Activated!**\n\nPlease send the Instagram profile"
-        " link now, and I will download up to 10 latest posts/reels for you."
+        " link now, and I will download up to 20 latest posts/reels for you."
     )
     return
   elif text == "💾 My Saved Files":
@@ -91,14 +90,13 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
   elif text == "✨ Help / Info":
     await update.message.reply_text(
         "💡 Send any video link directly, or click '📥 Bulk Profile Download'"
-        " to download from an Instagram profile."
+        " to download up to 20 items from an Instagram profile."
     )
     return
 
   if not text.startswith("http"):
     return
 
-  # Check if user clicked profile download button previously
   is_profile_mode = context.user_data.get("expecting_profile", False)
 
   logger.info(
@@ -106,7 +104,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
       f" {user.id}) | URL: {text} | Profile Mode: {is_profile_mode}"
   )
   context.user_data["target_url"] = text
-  context.user_data["expecting_profile"] = False  # Reset flag
+  context.user_data["expecting_profile"] = False
 
   keyboard = [
       [
@@ -164,7 +162,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       f" {data} for URL: {url}"
   )
   await query.edit_message_text(
-      "⏳ Downloading media... Please wait a moment."
+      "⏳ Downloading media (up to 20 items)... Please wait a moment."
   )
 
   format_opt = "best"
@@ -183,7 +181,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
   ydl_opts = {
       "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
       "format": format_opt,
-      "playlistend": 10,
+      "playlistend": 20,  # একসাথে সর্বোচ্চ ২০টি রিল বা পোস্ট
       "noplaylist": False,
       "quiet": True,
   }
@@ -296,7 +294,8 @@ def main():
   application.add_handler(CallbackQueryHandler(button_callback))
 
   logger.info(
-      "Bot started successfully with Profile Download button and Flask..."
+      "Bot started successfully with 20 items profile limit, Flask, and"
+      " cookies..."
   )
   application.run_polling()
 
