@@ -1,5 +1,7 @@
 import logging
 import os
+import threading
+from flask import Flask
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -26,9 +28,23 @@ logger = logging.getLogger(__name__)
 # Your Telegram bot token
 TOKEN = "8903792426:AAGLiKvLR1Lh7Mhx-CtKcXkI0f2uMKT9HlM"
 DOWNLOAD_DIR = "downloads"
+COOKIE_FILE = "cookies.txt"
 
 if not os.path.exists(DOWNLOAD_DIR):
   os.makedirs(DOWNLOAD_DIR)
+
+# --- Flask Web Server to prevent 503 Render Error ---
+app = Flask(__name__)
+
+
+@app.route("/")
+def index():
+  return "🤖 Universal Telegram Downloader Bot is Running 24/7!"
+
+
+def run_flask():
+  port = int(os.environ.get("PORT", 10000))
+  app.run(host="0.0.0.0", port=port)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -45,8 +61,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
   welcome_text = (
       "✨ Welcome to Universal Downloader Bot!\n\n"
-      "Send any YouTube, Facebook, Instagram, or Twitter link, and choose your"
-      " preferred quality.\n\n"
+      "Send any YouTube, Facebook, Instagram, or Twitter link (Single or"
+      " Profile/Playlist), and choose your preferred quality.\n\n"
       "👑 Developed by: Tanmay Kumar\n"
       "📧 Email: tke3432@gmail.com"
   )
@@ -59,15 +75,14 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
   if text == "💾 My Saved Files":
     await update.message.reply_text(
-        "📂 To save any video permanently, click the '💾 Save / Saved' button"
-        " right under the downloaded video, or use the top-right three dots"
-        " (...) of the video to save it to your gallery!"
+        "📂 To save any video permanently, use the top-right three dots (...)"
+        " of the video player to save it directly to your gallery!"
     )
     return
   elif text == "✨ Help / Info":
     await update.message.reply_text(
-        "💡 Send any video link from YouTube, Instagram, Facebook, or Twitter."
-        " Then select your desired quality from the buttons."
+        "💡 Send any video link or profile link from YouTube, Instagram,"
+        " Facebook, or Twitter. Then select your desired quality."
     )
     return
 
@@ -107,7 +122,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
   data = query.data
 
-  # When the Save button is clicked, it confirms and gives a direct alert
   if data == "save_action":
     await query.answer(
         "✅ Media is already saved in your chat history! You can also tap the"
@@ -137,7 +151,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       f" {data} for URL: {url}"
   )
   await query.edit_message_text(
-      "⏳ Downloading media... Please wait a moment."
+      "⏳ Downloading media (Profiles/Playlists may take a moment)... Please"
+      " wait."
   )
 
   format_opt = "best"
@@ -156,9 +171,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
   ydl_opts = {
       "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
       "format": format_opt,
-      "noplaylist": True,
+      "playlistend": 10,
+      "noplaylist": False,
       "quiet": True,
   }
+
+  if os.path.exists(COOKIE_FILE):
+    ydl_opts["cookiefile"] = COOKIE_FILE
 
   if is_audio:
     ydl_opts["postprocessors"] = [{
@@ -171,6 +190,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
   try:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
       info_dict = ydl.extract_info(url, download=True)
+
+      if "entries" in info_dict:
+        entries = [e for e in info_dict["entries"] if e]
+        if entries:
+          info_dict = entries[0]
+        else:
+          raise Exception("No downloadable media found in this profile/link.")
+
       file_path = ydl.prepare_filename(info_dict)
       if is_audio:
         file_path = os.path.splitext(file_path)[0] + ".mp3"
@@ -189,8 +216,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       )
       return
 
-    # Interactive Save Button attached right with the downloaded media
-    save_keyboard = [[InlineKeyboardButton("💾 Save / Saved", callback_data="save_action")]]
+    save_keyboard = [[
+        InlineKeyboardButton("💾 Save / Saved", callback_data="save_action")
+    ]]
     save_markup = InlineKeyboardMarkup(save_keyboard)
 
     with open(file_path, "rb") as media_file:
@@ -243,6 +271,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+  t = threading.Thread(target=run_flask)
+  t.daemon = True
+  t.start()
+
   application = ApplicationBuilder().token(TOKEN).build()
 
   application.add_handler(CommandHandler("start", start))
@@ -251,7 +283,7 @@ def main():
   )
   application.add_handler(CallbackQueryHandler(button_callback))
 
-  logger.info("Bot started successfully with interactive Save button...")
+  logger.info("Bot started successfully with Flask and all features...")
   application.run_polling()
 
 
