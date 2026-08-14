@@ -54,15 +54,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
       f" {user.id})"
   )
 
+  # Persistent Reply Keyboard with the new Profile Download button
   reply_keyboard = [
-      ["💾 My Saved Files", "✨ Help / Info"],
+      ["📥 Bulk Profile Download", "💾 My Saved Files"],
+      ["✨ Help / Info"],
   ]
   markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
 
   welcome_text = (
       "✨ Welcome to Universal Downloader Bot!\n\n"
-      "Send any YouTube, Facebook, Instagram, or Twitter link (Single or"
-      " Profile/Playlist), and choose your preferred quality.\n\n"
+      "Send any single link or use the Profile Download button below for"
+      " Instagram profiles.\n\n"
       "👑 Developed by: Tanmay Kumar\n"
       "📧 Email: tke3432@gmail.com"
   )
@@ -73,7 +75,14 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
   user = update.effective_user
   text = update.message.text.strip()
 
-  if text == "💾 My Saved Files":
+  if text == "📥 Bulk Profile Download":
+    context.user_data["expecting_profile"] = True
+    await update.message.reply_text(
+        "📥 **Profile Mode Activated!**\n\nPlease send the Instagram profile"
+        " link now, and I will download up to 10 latest posts/reels for you."
+    )
+    return
+  elif text == "💾 My Saved Files":
     await update.message.reply_text(
         "📂 To save any video permanently, use the top-right three dots (...)"
         " of the video player to save it directly to your gallery!"
@@ -81,19 +90,23 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
   elif text == "✨ Help / Info":
     await update.message.reply_text(
-        "💡 Send any video link or profile link from YouTube, Instagram,"
-        " Facebook, or Twitter. Then select your desired quality."
+        "💡 Send any video link directly, or click '📥 Bulk Profile Download'"
+        " to download from an Instagram profile."
     )
     return
 
   if not text.startswith("http"):
     return
 
+  # Check if user clicked profile download button previously
+  is_profile_mode = context.user_data.get("expecting_profile", False)
+
   logger.info(
       f"🔗 Link received from User: {user.full_name} (@{user.username}, ID:"
-      f" {user.id}) | URL: {text}"
+      f" {user.id}) | URL: {text} | Profile Mode: {is_profile_mode}"
   )
   context.user_data["target_url"] = text
+  context.user_data["expecting_profile"] = False  # Reset flag
 
   keyboard = [
       [
@@ -151,8 +164,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
       f" {data} for URL: {url}"
   )
   await query.edit_message_text(
-      "⏳ Downloading media (Profiles/Playlists may take a moment)... Please"
-      " wait."
+      "⏳ Downloading media... Please wait a moment."
   )
 
   format_opt = "best"
@@ -283,7 +295,9 @@ def main():
   )
   application.add_handler(CallbackQueryHandler(button_callback))
 
-  logger.info("Bot started successfully with Flask and all features...")
+  logger.info(
+      "Bot started successfully with Profile Download button and Flask..."
+  )
   application.run_polling()
 
 
