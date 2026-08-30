@@ -42,7 +42,7 @@ def run_flask():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
-        "📥 Send any Instagram, Facebook, or YouTube link directly to download in **HD Quality** instantly!\n\n"
+        "📥 Send any video link directly to download in **HD Quality** instantly!\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
@@ -56,11 +56,11 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Downloading media from Facebook/Instagram... Please wait.** 🚀",
+        "⏳ **Downloading media... Please wait a moment.** 🚀",
         parse_mode="Markdown",
     )
 
-    # 🌟 Advanced Options for Facebook & Instagram bypass
+    # 🌟 Bulletproof Options for Facebook/Instagram/YouTube
     ydl_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "format": "bestvideo+bestaudio/best",
@@ -69,15 +69,18 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "noplaylist": True,
         "geo_bypass": True,
         "nocheckcertificate": True,
+        "extractor_args": {
+            "facebook": {
+                "fetch_comment_replies": ["false"]
+            }
+        },
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-us,en;q=0.5",
-            "Sec-Fetch-Mode": "navigate",
+            "Accept-Language": "en-US,en;q=0.5",
         }
     }
     
-    # If cookies.txt is uploaded, use it to bypass login/parsing walls
     if os.path.exists(COOKIE_FILE):
         ydl_opts["cookiefile"] = COOKIE_FILE
 
@@ -89,13 +92,10 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 info_dict = info_dict["entries"][0]
             file_path = ydl.prepare_filename(info_dict)
             
-            # Ensure extension is mp4 if merged
             if not file_path.endswith('.mp4') and os.path.exists(file_path.rsplit('.', 1)[0] + '.mp4'):
                 file_path = file_path.rsplit('.', 1)[0] + '.mp4'
 
-        # 📊 Formatted Caption with Details & Credits
-        uploader_name = info_dict.get("uploader", "Facebook User")
-        upload_date = info_dict.get("upload_date", "N/A")
+        uploader_name = info_dict.get("uploader", "Social Media User")
         download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
 
         caption = (
@@ -114,7 +114,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown",
             )
 
-        # Delete the temporary status message
         try:
             await status_msg.delete()
         except Exception:
@@ -126,19 +125,15 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     finally:
-        # 🧹 Clean up local file after sending
         if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:
                 pass
 
-# 🚀 Main Function to Run Bot and Web Server
 def main():
-    # Start Flask in background thread
     threading.Thread(target=run_flask, daemon=True).start()
 
-    # Build Telegram Bot Application
     application = ApplicationBuilder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -146,7 +141,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully with enhanced Facebook/Instagram support!")
+    logger.info("🤖 Bot started successfully!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
