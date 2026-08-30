@@ -42,7 +42,7 @@ def run_flask():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
-        "📥 Send any video or media link directly to download it in **Highest HD Quality** instantly!\n\n"
+        "📥 Send any Instagram, Facebook, or YouTube link directly to download in **HD Quality** instantly!\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
@@ -56,21 +56,28 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Downloading in High Quality... Please wait a moment.** 🚀",
+        "⏳ **Downloading media from Facebook/Instagram... Please wait.** 🚀",
         parse_mode="Markdown",
     )
 
-    # 🌟 High Quality HD Options with FFmpeg merging
+    # 🌟 Advanced Options for Facebook & Instagram bypass
     ydl_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "format": "bestvideo+bestaudio/best",
         "merge_output_format": "mp4",
         "quiet": True,
         "noplaylist": True,
+        "geo_bypass": True,
+        "nocheckcertificate": True,
         "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5",
+            "Sec-Fetch-Mode": "navigate",
         }
     }
+    
+    # If cookies.txt is uploaded, use it to bypass login/parsing walls
     if os.path.exists(COOKIE_FILE):
         ydl_opts["cookiefile"] = COOKIE_FILE
 
@@ -87,14 +94,13 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 file_path = file_path.rsplit('.', 1)[0] + '.mp4'
 
         # 📊 Formatted Caption with Details & Credits
-        uploader_name = info_dict.get("uploader", "Unknown")
+        uploader_name = info_dict.get("uploader", "Facebook User")
         upload_date = info_dict.get("upload_date", "N/A")
         download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
 
         caption = (
             f"✅ **HD Download Completed Successfully!** 🎉\n\n"
             f"👤 **Uploader:** {uploader_name}\n"
-            f"📅 **Upload Date:** {upload_date}\n"
             f"📥 **Downloaded on:** {download_time}\n\n"
             f"👑 **Developed by:** Tanmay Kumar Das\n"
             f"📧 **Email:** tkd3432@gmail.com"
@@ -140,7 +146,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully with High Quality settings!")
+    logger.info("🤖 Bot started successfully with enhanced Facebook/Instagram support!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
