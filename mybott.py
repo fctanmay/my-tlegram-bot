@@ -19,15 +19,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 🔑 Bot Configuration & Directories
+# 🔑 Bot Configuration
 TOKEN = "8903792426:AAGLiKvLR1Lh7Mhx-CtKcXkI0f2uMKT9HlM"
 DOWNLOAD_DIR = "downloads"
-COOKIE_FILE = "cookies.txt"
 
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# 🌐 Flask Web Server to keep Render alive 24/7
+# 🌐 Flask Web Server
 app = Flask(__name__)
 
 @app.route("/")
@@ -42,7 +41,7 @@ def run_flask():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
-        "📥 Send any video link directly to download in **HD Quality** instantly!\n\n"
+        "📥 Send any Instagram, Facebook, or YouTube link directly to download in **HD Quality** instantly!\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
@@ -56,11 +55,11 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Downloading media... Please wait a moment.** 🚀",
+        "⏳ **Downloading in HD Quality... Please wait.** 🚀",
         parse_mode="Markdown",
     )
 
-    # 🌟 Bulletproof Options for Facebook/Instagram/YouTube
+    # 🌟 Direct Browser Impersonation (No cookies.txt needed!)
     ydl_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "format": "bestvideo+bestaudio/best",
@@ -69,20 +68,8 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "noplaylist": True,
         "geo_bypass": True,
         "nocheckcertificate": True,
-        "extractor_args": {
-            "facebook": {
-                "fetch_comment_replies": ["false"]
-            }
-        },
-        "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-        }
+        "impersonate": "chrome",
     }
-    
-    if os.path.exists(COOKIE_FILE):
-        ydl_opts["cookiefile"] = COOKIE_FILE
 
     file_path = None
     try:
@@ -141,7 +128,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully!")
+    logger.info("🤖 Bot started successfully without cookies!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
