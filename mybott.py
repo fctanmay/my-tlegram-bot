@@ -42,7 +42,7 @@ def run_flask():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
-        "📥 Send any video or media link directly to download it instantly.\n\n"
+        "📥 Send any video or media link directly to download it in **Highest HD Quality** instantly!\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
@@ -56,15 +56,20 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Downloading your media... Please wait a moment.** 🚀",
+        "⏳ **Downloading in High Quality... Please wait a moment.** 🚀",
         parse_mode="Markdown",
     )
 
+    # 🌟 High Quality HD Options with FFmpeg merging
     ydl_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
-        "format": "best",
+        "format": "bestvideo+bestaudio/best",
+        "merge_output_format": "mp4",
         "quiet": True,
         "noplaylist": True,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        }
     }
     if os.path.exists(COOKIE_FILE):
         ydl_opts["cookiefile"] = COOKIE_FILE
@@ -76,6 +81,10 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if "entries" in info_dict:
                 info_dict = info_dict["entries"][0]
             file_path = ydl.prepare_filename(info_dict)
+            
+            # Ensure extension is mp4 if merged
+            if not file_path.endswith('.mp4') and os.path.exists(file_path.rsplit('.', 1)[0] + '.mp4'):
+                file_path = file_path.rsplit('.', 1)[0] + '.mp4'
 
         # 📊 Formatted Caption with Details & Credits
         uploader_name = info_dict.get("uploader", "Unknown")
@@ -83,7 +92,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
 
         caption = (
-            f"✅ **Download Completed Successfully!** 🎉\n\n"
+            f"✅ **HD Download Completed Successfully!** 🎉\n\n"
             f"👤 **Uploader:** {uploader_name}\n"
             f"📅 **Upload Date:** {upload_date}\n"
             f"📥 **Downloaded on:** {download_time}\n\n"
@@ -131,7 +140,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully with full styling and credits!")
+    logger.info("🤖 Bot started successfully with High Quality settings!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
