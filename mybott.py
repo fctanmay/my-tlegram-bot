@@ -19,14 +19,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 🔑 Bot Configuration
+# 🔑 Bot Configuration & Directories
 TOKEN = "8903792426:AAGLiKvLR1Lh7Mhx-CtKcXkI0f2uMKT9HlM"
 DOWNLOAD_DIR = "downloads"
+COOKIE_FILE = "cookies.txt"
 
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# 🌐 Flask Web Server
+# 🌐 Flask Web Server to keep Render alive 24/7
 app = Flask(__name__)
 
 @app.route("/")
@@ -59,7 +60,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
     )
 
-    # 🌟 Direct Browser Impersonation (No cookies.txt needed!)
+    # 🌟 Stable Clean Options for yt-dlp
     ydl_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "format": "bestvideo+bestaudio/best",
@@ -68,8 +69,15 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "noplaylist": True,
         "geo_bypass": True,
         "nocheckcertificate": True,
-        "impersonate": "chrome",
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
     }
+    
+    if os.path.exists(COOKIE_FILE):
+        ydl_opts["cookiefile"] = COOKIE_FILE
 
     file_path = None
     try:
@@ -118,6 +126,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
+# 🚀 Main Function
 def main():
     threading.Thread(target=run_flask, daemon=True).start()
 
@@ -128,7 +137,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully without cookies!")
+    logger.info("🤖 Bot started successfully with stable configuration!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
