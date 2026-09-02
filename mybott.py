@@ -32,7 +32,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return "🤖 Universal Telegram Downloader Bot is Running 24/7!"
+    return "🤖 Universal HD Video & MP3 Downloader Bot is Running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -41,14 +41,14 @@ def run_flask():
 # 👋 Start Command Handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
-        "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
-        "📥 Send any Instagram, Facebook, or YouTube link directly to download in **HD Quality** instantly!\n\n"
+        "✨ **Welcome to Universal Video & MP3 Downloader Bot!** ✨\n\n"
+        "📥 Send any video link, and the bot will send you both **HD Video** and **MP3 Audio** automatically! 🚀🎶\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown")
 
-# 📥 URL Handler & Downloader
+# 📥 URL Handler (Downloads both HD Video and MP3 Audio)
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
@@ -56,12 +56,12 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Downloading in HD Quality... Please wait.** 🚀",
+        "⏳ **Downloading HD Video & Extracting MP3... Please wait.** 🚀🎶",
         parse_mode="Markdown",
     )
 
-    # 🌟 Stable Clean Options for yt-dlp
-    ydl_opts = {
+    # 1️⃣ Options for HD Video Download
+    video_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "format": "bestvideo+bestaudio/best",
         "merge_output_format": "mp4",
@@ -71,43 +71,82 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "nocheckcertificate": True,
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
         }
     }
-    
-    if os.path.exists(COOKIE_FILE):
-        ydl_opts["cookiefile"] = COOKIE_FILE
 
-    file_path = None
+    # 2️⃣ Options for MP3 Audio Download
+    audio_opts = {
+        "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
+        "format": "bestaudio/best",
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+        "quiet": True,
+        "noplaylist": True,
+        "geo_bypass": True,
+        "nocheckcertificate": True,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        }
+    }
+
+    if os.path.exists(COOKIE_FILE):
+        video_opts["cookiefile"] = COOKIE_FILE
+        audio_opts["cookiefile"] = COOKIE_FILE
+
+    video_path = None
+    audio_path = None
+
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Download Video
+        with yt_dlp.YoutubeDL(video_opts) as ydl:
             info_dict = ydl.extract_info(text, download=True)
             if "entries" in info_dict:
                 info_dict = info_dict["entries"][0]
-            file_path = ydl.prepare_filename(info_dict)
-            
-            if not file_path.endswith('.mp4') and os.path.exists(file_path.rsplit('.', 1)[0] + '.mp4'):
-                file_path = file_path.rsplit('.', 1)[0] + '.mp4'
+            video_path = ydl.prepare_filename(info_dict)
+            if not video_path.endswith('.mp4') and os.path.exists(video_path.rsplit('.', 1)[0] + '.mp4'):
+                video_path = video_path.rsplit('.', 1)[0] + '.mp4'
+
+        # Download Audio (MP3)
+        with yt_dlp.YoutubeDL(audio_opts) as ydl:
+            file_id = info_dict.get("id", "audio")
+            audio_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp3")
+            # If mp3 doesn't exist from previous cache, extract again
+            if not os.path.exists(audio_path):
+                ydl.download([text])
 
         uploader_name = info_dict.get("uploader", "Social Media User")
+        title = info_dict.get("title", "Media File")
         download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
 
         caption = (
-            f"✅ **HD Download Completed Successfully!** 🎉\n\n"
-            f"👤 **Uploader:** {uploader_name}\n"
+            f"✅ **HD Video & MP3 Downloaded Successfully!** 🎉🎶\n\n"
+            f"👤 **Uploader/Title:** {uploader_name}\n"
             f"📥 **Downloaded on:** {download_time}\n\n"
             f"👑 **Developed by:** Tanmay Kumar Das\n"
             f"📧 **Email:** tkd3432@gmail.com"
         )
 
-        with open(file_path, "rb") as media_file:
+        # Send Video
+        with open(video_path, "rb") as vid_file:
             await context.bot.send_video(
                 chat_id=update.message.chat_id,
-                video=media_file,
+                video=vid_file,
                 caption=caption,
                 parse_mode="Markdown",
             )
+
+        # Send MP3 Audio
+        if audio_path and os.path.exists(audio_path):
+            with open(audio_path, "rb") as aud_file:
+                await context.bot.send_audio(
+                    chat_id=update.message.chat_id,
+                    audio=aud_file,
+                    caption=f"🎵 **Audio Version (MP3)**\n👑 **Developed by:** Tanmay Kumar Das",
+                    parse_mode="Markdown",
+                )
 
         try:
             await status_msg.delete()
@@ -120,9 +159,15 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     finally:
-        if file_path and os.path.exists(file_path):
+        # 🧹 Clean up local files after sending
+        if video_path and os.path.exists(video_path):
             try:
-                os.remove(file_path)
+                os.remove(video_path)
+            except Exception:
+                pass
+        if audio_path and os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
             except Exception:
                 pass
 
@@ -137,7 +182,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully with stable configuration!")
+    logger.info("🤖 Bot started successfully with both Video and MP3 auto-download!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
