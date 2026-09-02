@@ -42,13 +42,85 @@ def run_flask():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
-        "📥 Send any Instagram, Facebook, or YouTube link directly to download in **HD Quality** instantly!\n\n"
+        "📥 Send any video link to download in **HD Video** format.\n"
+        "🎵 Or send link with `/mp3 [link]` or select audio mode to download **MP3 Audio**!\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown")
 
-# 📥 URL Handler & Downloader
+# 🎵 MP3 Command Handler (`/mp3 <link>`)
+async def download_mp3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if not args:
+        await update.message.reply_text("⚠️ Please provide a link after `/mp3`. Example: `/mp3 https://youtube.com/...`", parse_mode="Markdown")
+        return
+
+    text = args[0].strip()
+    status_msg = await update.message.reply_text("⏳ **Downloading MP3 Audio... Please wait.** 🎧", parse_mode="Markdown")
+
+    ydl_opts = {
+        "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
+        "format": "bestaudio/best",
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+        "quiet": True,
+        "noplaylist": True,
+        "geo_bypass": True,
+        "nocheckcertificate": True,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        }
+    }
+
+    if os.path.exists(COOKIE_FILE):
+        ydl_opts["cookiefile"] = COOKIE_FILE
+
+    file_path = None
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(text, download=True)
+            file_id = info_dict.get("id", "audio")
+            file_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp3")
+
+        title = info_dict.get("title", "Audio File")
+        download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
+
+        caption = (
+            f"✅ **MP3 Download Completed!** 🎶\n\n"
+            f"🎵 **Title:** {title}\n"
+            f"📥 **Downloaded on:** {download_time}\n\n"
+            f"👑 **Developed by:** Tanmay Kumar Das\n"
+            f"📧 **Email:** tkd3432@gmail.com"
+        )
+
+        with open(file_path, "rb") as audio_file:
+            await context.bot.send_audio(
+                chat_id=update.message.chat_id,
+                audio=audio_file,
+                caption=caption,
+                parse_mode="Markdown",
+            )
+
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+
+    except Exception as e:
+        await status_msg.edit_text(f"❌ **MP3 Download Failed!**\n\nError: `{str(e)}`", parse_mode="Markdown")
+
+    finally:
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+
+# 📥 Normal URL Handler (Downloads HD Video by default)
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
@@ -56,11 +128,10 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Downloading in HD Quality... Please wait.** 🚀",
+        "⏳ **Downloading HD Video... Please wait.** 🚀",
         parse_mode="Markdown",
     )
 
-    # 🌟 Stable Clean Options for yt-dlp
     ydl_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "format": "bestvideo+bestaudio/best",
@@ -94,7 +165,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
 
         caption = (
-            f"✅ **HD Download Completed Successfully!** 🎉\n\n"
+            f"✅ **HD Video Download Completed!** 🎉\n\n"
             f"👤 **Uploader:** {uploader_name}\n"
             f"📥 **Downloaded on:** {download_time}\n\n"
             f"👑 **Developed by:** Tanmay Kumar Das\n"
@@ -133,11 +204,12 @@ def main():
     application = ApplicationBuilder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("mp3", download_mp3))
     application.add_handler(
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully with stable configuration!")
+    logger.info("🤖 Bot started successfully with Video and MP3 support!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
