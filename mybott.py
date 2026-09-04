@@ -75,7 +75,7 @@ def add_uploader_watermark(input_video, output_video, uploader_name):
         logger.error(f"Watermark generation error: {e}")
         return False
 
-# 📥 URL Handler
+# 📥 URL Handler (Direct Processing without restrictions)
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
@@ -215,7 +215,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully with watermarked video tagger!")
+    logger.info("🤖 Bot started successfully without any channel restrictions!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
