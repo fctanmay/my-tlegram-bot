@@ -33,7 +33,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return "🤖 Universal HD Video, Tagged Video & MP3 Downloader Bot is Running 24/7!"
+    return "🤖 Universal HD Video & Tagged Video Bot is Running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -45,14 +45,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
         "📥 Send any video link, and the bot will send:\n"
         "1️⃣ **Original HD Video**\n"
-        "2️⃣ **Custom Video with Uploader Name Written on it** 🏷️\n"
-        "3️⃣ **MP3 Audio File** 🎶\n\n"
+        "2️⃣ **Custom Video with Uploader Name Watermark** 🏷️\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown")
 
-# 🏷️ Function to burn uploader name onto the video using FFmpeg watermark
+# 🏷️ Function to burn uploader name onto the video using FFmpeg
 def add_uploader_watermark(input_video, output_video, uploader_name):
     try:
         font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -75,7 +74,7 @@ def add_uploader_watermark(input_video, output_video, uploader_name):
         logger.error(f"Watermark generation error: {e}")
         return False
 
-# 📥 URL Handler (Direct Processing without restrictions)
+# 📥 URL Handler
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
@@ -83,7 +82,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Processing Media & Generating Tagged Video... Please wait.** 🚀🏷️🎶",
+        "⏳ **Downloading & Generating Tagged Video... Please wait.** 🚀🏷️",
         parse_mode="Markdown",
     )
 
@@ -105,7 +104,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     video_path = None
     tagged_video_path = None
-    audio_path = None
 
     try:
         # 1️⃣ Download Original Video
@@ -128,27 +126,8 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not watermark_success:
             tagged_video_path = None
 
-        # 3️⃣ Extract MP3 Audio
-        audio_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp3")
-        audio_opts = {
-            "outtmpl": os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
-            "format": "bestaudio/best",
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }],
-            "quiet": True,
-            "noplaylist": True,
-        }
-        if os.path.exists(COOKIE_FILE):
-            audio_opts["cookiefile"] = COOKIE_FILE
-
-        with yt_dlp.YoutubeDL(audio_opts) as ydl_audio:
-            ydl_audio.download([text])
-
         caption = (
-            f"✅ **Media & Custom Tagged Video Generated!** 🎉🏷️🎶\n\n"
+            f"✅ **HD Video & Tagged Video Generated!** 🎉🏷️\n\n"
             f"👤 **Uploader:** {uploader_name}\n"
             f"📥 **Downloaded on:** {download_time}\n\n"
             f"👑 **Developed by:** Tanmay Kumar Das\n"
@@ -171,17 +150,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_video(
                     chat_id=update.message.chat_id,
                     video=tag_file,
-                    caption=f"🏷️ **Custom Video with Uploader Name Watermark:** `{uploader_name}`\n👑 **Developed by:** Tanmay Kumar Das",
-                    parse_mode="Markdown",
-                )
-
-        # Send MP3 Audio
-        if audio_path and os.path.exists(audio_path):
-            with open(audio_path, "rb") as aud_file:
-                await context.bot.send_audio(
-                    chat_id=update.message.chat_id,
-                    audio=aud_file,
-                    caption=f"🎵 **Audio Version (MP3)**\n👑 **Developed by:** Tanmay Kumar Das",
+                    caption=f"🏷️ **Custom Video with Uploader Watermark:** `{uploader_name}`\n👑 **Developed by:** Tanmay Kumar Das",
                     parse_mode="Markdown",
                 )
 
@@ -197,7 +166,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     finally:
         # 🧹 Clean up local files after sending
-        for p in [video_path, tagged_video_path, audio_path]:
+        for p in [video_path, tagged_video_path]:
             if p and os.path.exists(p):
                 try:
                     os.remove(p)
@@ -215,7 +184,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully without any channel restrictions!")
+    logger.info("🤖 Bot started successfully without ffprobe errors!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
