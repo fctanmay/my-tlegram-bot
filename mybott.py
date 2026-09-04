@@ -1,7 +1,6 @@
 import os
 import logging
 import threading
-import subprocess
 from flask import Flask
 from telegram import Update
 from telegram.ext import (
@@ -33,48 +32,23 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return "🤖 Universal HD Video & Tagged Video Bot is Running 24/7!"
+    return "🤖 Universal HD Video Downloader Bot is Running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# 👋 Start Command Handler
+# 👋 Start Command Handler (No custom inline/reply keyboards)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
-        "📥 Send any video link, and the bot will send:\n"
-        "1️⃣ **Original HD Video**\n"
-        "2️⃣ **Custom Video with Uploader Name Watermark** 🏷️\n\n"
+        "📥 Send any video link, and the bot will send you the **HD Video** instantly with perfect sound! 🚀\n\n"
         "👑 **Developed & Maintained by:** Tanmay Kumar Das\n"
         "📧 **Contact:** tkd3432@gmail.com"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown")
 
-# 🏷️ Function to burn uploader name onto the video using FFmpeg
-def add_uploader_watermark(input_video, output_video, uploader_name):
-    try:
-        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if not os.path.exists(font_path):
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-        
-        if os.path.exists(font_path):
-            text_filter = f"drawtext=text='Uploader: {uploader_name}':fontfile={font_path}:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.6:x=20:y=20"
-        else:
-            text_filter = f"drawtext=text='Uploader: {uploader_name}':fontsize=24:fontcolor=white:box=1:boxcolor=black@0.6:x=20:y=20"
-
-        cmd = [
-            "ffmpeg", "-y", "-i", input_video,
-            "-vf", text_filter,
-            "-codec:a", "copy", output_video
-        ]
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        return True
-    except Exception as e:
-        logger.error(f"Watermark generation error: {e}")
-        return False
-
-# 📥 URL Handler
+# 📥 URL Handler (Downloads clean HD Video with proper audio merging)
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
@@ -82,10 +56,11 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text(
-        "⏳ **Downloading & Generating Tagged Video... Please wait.** 🚀🏷️",
+        "⏳ **Downloading HD Video with Sound... Please wait.** 🚀",
         parse_mode="Markdown",
     )
 
+    # 🌟 Robust options ensuring video and audio formats merge correctly with sound
     video_opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s"),
         "format": "bestvideo+bestaudio/best",
@@ -96,6 +71,8 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "nocheckcertificate": True,
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
         }
     }
 
@@ -103,10 +80,8 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         video_opts["cookiefile"] = COOKIE_FILE
 
     video_path = None
-    tagged_video_path = None
 
     try:
-        # 1️⃣ Download Original Video
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             info_dict = ydl.extract_info(text, download=True)
             if "entries" in info_dict:
@@ -116,41 +91,24 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not video_path.endswith('.mp4') and os.path.exists(video_path.rsplit('.', 1)[0] + '.mp4'):
                 video_path = video_path.rsplit('.', 1)[0] + '.mp4'
 
-        file_id = info_dict.get("id", "media")
         uploader_name = info_dict.get("uploader", "Social Media User")
         download_time = update.message.date.strftime("%Y-%m-%d %H:%M")
 
-        # 2️⃣ Create Tagged Video with Uploader Name Watermark
-        tagged_video_path = os.path.join(DOWNLOAD_DIR, f"{file_id}_tagged.mp4")
-        watermark_success = add_uploader_watermark(video_path, tagged_video_path, uploader_name)
-        if not watermark_success:
-            tagged_video_path = None
-
         caption = (
-            f"✅ **HD Video & Tagged Video Generated!** 🎉🏷️\n\n"
+            f"✅ **HD Video Downloaded Successfully!** 🎉\n\n"
             f"👤 **Uploader:** {uploader_name}\n"
             f"📥 **Downloaded on:** {download_time}\n\n"
             f"👑 **Developed by:** Tanmay Kumar Das\n"
             f"📧 **Email:** tkd3432@gmail.com"
         )
 
-        # Send Original HD Video
+        # Send Clean Video with sound
         if video_path and os.path.exists(video_path):
             with open(video_path, "rb") as vid_file:
                 await context.bot.send_video(
                     chat_id=update.message.chat_id,
                     video=vid_file,
                     caption=caption,
-                    parse_mode="Markdown",
-                )
-
-        # Send Tagged Video (With Uploader Name Watermark on it)
-        if tagged_video_path and os.path.exists(tagged_video_path):
-            with open(tagged_video_path, "rb") as tag_file:
-                await context.bot.send_video(
-                    chat_id=update.message.chat_id,
-                    video=tag_file,
-                    caption=f"🏷️ **Custom Video with Uploader Watermark:** `{uploader_name}`\n👑 **Developed by:** Tanmay Kumar Das",
                     parse_mode="Markdown",
                 )
 
@@ -165,13 +123,12 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     finally:
-        # 🧹 Clean up local files after sending
-        for p in [video_path, tagged_video_path]:
-            if p and os.path.exists(p):
-                try:
-                    os.remove(p)
-                except Exception:
-                    pass
+        # 🧹 Clean up local file after sending
+        if video_path and os.path.exists(video_path):
+            try:
+                os.remove(video_path)
+            except Exception:
+                pass
 
 # 🚀 Main Function
 def main():
@@ -184,7 +141,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully without ffprobe errors!")
+    logger.info("🤖 Bot started successfully with clean chat and perfect sound!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
