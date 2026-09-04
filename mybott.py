@@ -32,13 +32,13 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return "🤖 Universal HD Video Downloader Bot is Running 24/7!"
+    return "🤖 Universal HD Video Downloader Bot is Running Fresh 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# 👋 Start Command Handler (No custom inline/reply keyboards)
+# 👋 Start Command Handler (Completely clean chat, zero buttons)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "✨ **Welcome to Universal Downloader Bot!** ✨\n\n"
@@ -141,7 +141,7 @@ def main():
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_url)
     )
 
-    logger.info("🤖 Bot started successfully with clean chat and perfect sound!")
+    logger.info("🤖 Bot started fresh with zero restrictions and perfect sound!")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
